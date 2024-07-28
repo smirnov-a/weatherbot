@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            white-space: nowrap;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(2n) td {
+            background-color: rgb(220, 220, 220);
+        }
+    </style>
+</head>
+<body>
+    <h2>{{ T "Weather forecast for city" }} {{ T .CurrentData.City }}</h2>
+    <p>{{ T "Current weather" }}: {{ .CurrentData.Weather }}°C  {{ T "Sunrise" }}: {{ .ForecastData.Sunrise }} {{ T "Sunset" }}: {{ .ForecastData.Sunset }}</p>
+    <table>
+        <caption>{{ T "Forecast for" }} {{.ForecastData.Days}} {{ T "days" }}</caption>
+        <tbody>
+            <tr>
+                <td>{{ T "Datetime" }}</td>
+                <td>{{ T "Temperature" }}<br>(°C)</td>
+                <td>{{ T "Feels like" }}<br>(°C)</td>
+                <td>{{ T "Pressure" }}<br>({{ T "mmHg" }})</td>
+                <td>{{ T "Humidity" }}<br>(%)</td>
+                <td>{{ T "Clouds" }}<br>(%)</td>
+                <td>{{ T "Weather" }}</td>
+                <td>{{ T "Wind" }}<br>({{ T "m/sec" }})</td>
+                <td>{{ T "Precipitation" }}<br>({{ T "mm" }})</td>
+                <td>{{ T "Probability of precipitation" }}<br>(%)</td>
+            </tr>
+            {{ range .ForecastData.Rows }}
+            <tr>
+                <td>{{ .Timestamp }}</td>
+                <td>{{ .Temperature }}</td>
+                <td>{{ .FeelsLike }}</td>
+                <td>{{ .Pressure }}</td>
+                <td>{{ .Humidity }}</td>
+                <td>{{ .Clouds }}</td>
+                <td>{{ .Weather }}</td>
+                <td>{{ .Wind.Speed }}</td>
+                <td>{{ if greaterThan .Precipitation 0.0 }}{{ .Precipitation }}{{ end }}</td>
+                <td>{{ .Pop }}</td>
+            </tr>
+            {{ end }}
+        </tbody>
+    </table>
+</body>
+</html>
