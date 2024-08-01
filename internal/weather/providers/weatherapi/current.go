@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
 	"sync"
 	"weatherbot/internal/weather"
 	"weatherbot/utils"
@@ -12,6 +13,7 @@ import (
 
 const weatherUrl = "https://api.weatherapi.com/v1/current.json"
 
+// GetCurrentWeatherData get current weather from data provider
 func (api *WeatherAPI) GetCurrentWeatherData(cityInfo *weather.CityInfo, wg *sync.WaitGroup, ch chan<- *weather.CurrentData, errCh chan<- error) {
 	const method = "GetCurrentWeatherData"
 
@@ -22,12 +24,19 @@ func (api *WeatherAPI) GetCurrentWeatherData(cityInfo *weather.CityInfo, wg *syn
 		wg.Done()
 	}()
 
-	additional := map[string]string{
-		"current_fields": "temp_c,feelslike_c,wind_kph,wind_degree,wind_dir,pressure_mb,condition",
+	params := &utils.RequestParams{
+		Method:      http.MethodGet,
+		Url:         weatherUrl,
+		QueryParams: api.GetUrlParams(cityInfo),
 	}
-	url, _ := utils.GetUrl(weatherUrl, cityInfo, api, &additional)
-	client := utils.GetHttpClient()
-	response, err := client.Get(url)
+
+	req, err := utils.NewRequest(params)
+	if err != nil {
+		errCh <- fmt.Errorf("%s. error creating request: %w", method, err)
+		return
+	}
+
+	response, err := utils.DoRequestWithRetry(req, utils.Retries, utils.RetryTimeout)
 	if err != nil {
 		errCh <- fmt.Errorf("%s. error fetching data: %w", method, err)
 		return
@@ -47,9 +56,13 @@ func (api *WeatherAPI) GetCurrentWeatherData(cityInfo *weather.CityInfo, wg *syn
 		return
 	}
 
+	wData := 0.0
+	if resCurrent, found := result["current"]; found {
+		wData = math.Round(resCurrent.(map[string]interface{})["temp_c"].(float64))
+	}
 	data := &weather.CurrentData{
 		City:    cityInfo.Name,
-		Weather: math.Round(result["current"].(map[string]interface{})["temp_c"].(float64)),
+		Weather: wData,
 	}
 
 	ch <- data

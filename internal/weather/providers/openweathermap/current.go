@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
 	"sync"
 	"weatherbot/internal/weather"
 	"weatherbot/utils"
@@ -12,6 +13,7 @@ import (
 
 const weatherUrl = "https://api.openweathermap.org/data/2.5/weather"
 
+// GetCurrentWeatherData get current weather from data provider
 func (owm *OpenWeatherMap) GetCurrentWeatherData(cityInfo *weather.CityInfo, wg *sync.WaitGroup, ch chan<- *weather.CurrentData, errCh chan<- error) {
 	const method = "GetCurrentWeatherData"
 
@@ -22,9 +24,19 @@ func (owm *OpenWeatherMap) GetCurrentWeatherData(cityInfo *weather.CityInfo, wg 
 		wg.Done()
 	}()
 
-	url, _ := utils.GetUrl(weatherUrl, cityInfo, owm, nil)
-	client := utils.GetHttpClient()
-	response, err := client.Get(url)
+	params := &utils.RequestParams{
+		Method:      http.MethodGet,
+		Url:         weatherUrl,
+		QueryParams: owm.GetUrlParams(cityInfo),
+	}
+
+	req, err := utils.NewRequest(params)
+	if err != nil {
+		errCh <- fmt.Errorf("%s. error creating request: %w", method, err)
+		return
+	}
+
+	response, err := utils.DoRequestWithRetry(req, utils.Retries, utils.RetryTimeout)
 	if err != nil {
 		errCh <- fmt.Errorf("%s. error fetching data: %w", method, err)
 		return
@@ -44,9 +56,13 @@ func (owm *OpenWeatherMap) GetCurrentWeatherData(cityInfo *weather.CityInfo, wg 
 		return
 	}
 
+	wData := 0.0
+	if resMain, found := result["main"]; found {
+		wData = math.Round(resMain.(map[string]interface{})["temp"].(float64))
+	}
 	data := &weather.CurrentData{
 		City:    cityInfo.Name,
-		Weather: math.Round(result["main"].(map[string]interface{})["temp"].(float64)),
+		Weather: wData,
 	}
 
 	ch <- data

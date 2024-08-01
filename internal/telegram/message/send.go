@@ -9,11 +9,12 @@ import (
 
 const templatePath = "templates/weather.html"
 
-func SendMessageToTelegram(ctx *app.AppContext, data *weather.WeatherData) {
+// SendMessageToTelegram send message to telegram with weather data
+func SendMessageToTelegram(app *app.AppContext, data *weather.WeatherData) {
 	const method = "SendMessageToTelegram"
 	defer func() {
 		if r := recover(); r != nil {
-			ctx.Logger.Printf("Recovered from panic in %s: %v", method, r)
+			app.Logger.Printf("Recovered from panic in %s: %v", method, r)
 		}
 	}()
 
@@ -23,13 +24,13 @@ func SendMessageToTelegram(ctx *app.AppContext, data *weather.WeatherData) {
 
 	htmlContent, err := GenerateWeatherHtm(data, templatePath)
 	if err != nil {
-		ctx.Logger.Printf("%s. Failed to generate HTML: %v", method, err)
+		app.Logger.Printf("%s. Failed to generate HTML: %v", method, err)
 		return
 	}
 
 	tempFile, err := os.CreateTemp("", "weather_forecast_*.png")
 	if err != nil {
-		ctx.Logger.Printf("%s. Failed to create temporary file: %v", method, err)
+		app.Logger.Printf("%s. Failed to create temporary file: %v", method, err)
 		return
 	}
 
@@ -39,12 +40,12 @@ func SendMessageToTelegram(ctx *app.AppContext, data *weather.WeatherData) {
 	}()
 
 	if err := RenderHTMLToImage(htmlContent, tempFile.Name()); err != nil {
-		ctx.Logger.Printf("%s. Failed to render HTML to image: %v", method, err)
+		app.Logger.Printf("%s. Failed to render HTML to image: %v", method, err)
 		return
 	}
 
-	photo := tgbotapi.NewPhoto(ctx.ChatID, tgbotapi.FilePath(tempFile.Name()))
-	if _, err := ctx.TelegramBot.Bot.Send(photo); err != nil {
-		ctx.Logger.Printf("%s. Telegram bot send error: %v", method, err)
+	photo := tgbotapi.NewPhoto(app.ChatID, tgbotapi.FilePath(tempFile.Name()))
+	if _, err := app.TelegramBot.Bot.Send(photo); err != nil {
+		app.Logger.Printf("%s. Telegram bot send error: %v", method, err)
 	}
 }

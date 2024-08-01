@@ -57,7 +57,7 @@ func GetGeoCoderData(city string, geoCoder weather.GeoCoderInterface) (cityInfo 
 	} else {
 		cityInfo, err = geoCoder.GetGeoCodeCityInfo(city)
 		if err != nil {
-			logger.Logger().Println("err:", err)
+			logger.Logger().Print("err:", err)
 			return nil
 		}
 		geoCoder.GetCacheInstance().Set(cacheKey, cityInfo, cache.NoExpiration)

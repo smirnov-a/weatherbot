@@ -3,6 +3,7 @@ package telegram
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"net/http"
+	"weatherbot/config"
 	"weatherbot/internal/logger"
 )
 
@@ -10,6 +11,7 @@ type TelegramBot struct {
 	Bot *tgbotapi.BotAPI
 }
 
+// NewTelegramBot returns telegram bot instance
 func NewTelegramBot(token string) (*TelegramBot, error) {
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
@@ -21,6 +23,7 @@ func NewTelegramBot(token string) (*TelegramBot, error) {
 	}, nil
 }
 
+// SendMessage send message to given chat
 func (t *TelegramBot) SendMessage(chatID int64, message string) error {
 	msg := tgbotapi.NewMessage(chatID, message)
 	_, err := t.Bot.Send(msg)
@@ -68,7 +71,7 @@ func (t *TelegramBot) HandleWebhook(webhookURL string) {
 
 	updates := t.Bot.ListenForWebhook("/")
 
-	go http.ListenAndServe(":8080", nil)
+	go http.ListenAndServe(":"+config.GetConfigValue("WEBHOOK_PORT"), nil)
 
 	for update := range updates {
 		if update.Message != nil {

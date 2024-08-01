@@ -19,6 +19,7 @@ type GeoCoderInterface interface {
 	CacheInterface
 }
 
+// CacheInterface cache instance
 type CacheInterface interface {
 	GetCacheInstance() *cache.Cache
 }

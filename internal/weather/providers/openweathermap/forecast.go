@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
 	"sync"
 	"time"
 	"weatherbot/internal/weather"
@@ -16,6 +17,7 @@ const forecastUrl = "https://api.openweathermap.org/data/2.5/forecast"
 // limitOfResult count of items in forecast
 const limitOfResult = "10"
 
+// GetWeatherDataForecast get forecast from data provider
 func (owm *OpenWeatherMap) GetWeatherDataForecast(cityInfo *weather.CityInfo, wg *sync.WaitGroup, ch chan<- *weather.ForecastData, errCh chan<- error) { //(data weather.WeatherData, err error) {
 	const method = "GetWeatherDataForecast"
 
@@ -29,9 +31,18 @@ func (owm *OpenWeatherMap) GetWeatherDataForecast(cityInfo *weather.CityInfo, wg
 	additional := map[string]string{
 		"cnt": limitOfResult,
 	}
-	url, _ := utils.GetUrl(forecastUrl, cityInfo, owm, &additional)
-	client := utils.GetHttpClient()
-	response, err := client.Get(url)
+	params := &utils.RequestParams{
+		Method:      http.MethodGet,
+		Url:         forecastUrl,
+		QueryParams: utils.GetQueryParams(owm, cityInfo, &additional),
+	}
+	req, err := utils.NewRequest(params)
+	if err != nil {
+		errCh <- fmt.Errorf("%s. error creating request: %w", method, err)
+		return
+	}
+
+	response, err := utils.DoRequestWithRetry(req, utils.Retries, utils.RetryTimeout)
 	if err != nil {
 		errCh <- fmt.Errorf("%s. error fetching data: %w", method, err)
 		return

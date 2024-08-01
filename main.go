@@ -45,7 +45,7 @@ func main() {
 		log.Fatalf("Failed to create telegram bot: %v", err)
 	}
 
-	ctx := &app.AppContext{
+	app := &app.AppContext{
 		TelegramBot: bot,
 		Cache:       cache.New(cache.NoExpiration, cache.NoExpiration),
 		Crontab:     *crontabFile,
@@ -53,9 +53,10 @@ func main() {
 		Logger:      log,
 	}
 
-	scheduler.Start(ctx)
+	scheduler.Start(app)
 }
 
+// initLocale initialize locale
 func initLocale() {
 	lang := config.GetConfigValue("LANGUAGE")
 	if lang != "" {

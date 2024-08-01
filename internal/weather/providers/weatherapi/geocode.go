@@ -2,8 +2,8 @@ package weatherapi
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
+	"net/http"
 	"weatherbot/internal/weather"
 	"weatherbot/utils"
 )
@@ -14,16 +14,19 @@ func (api *WeatherAPI) GetGeoCodeCityInfo(city string) (*weather.CityInfo, error
 	const method = "GetGeoCodeCityInfo"
 	var geoData weather.CityInfo
 
-	additionalParams := api.GetGeoCodingParams(city)
-	url, _ := utils.GetUrl(geoCodeUrl, nil, api, additionalParams)
-	client := utils.GetHttpClient()
-	response, err := client.Get(url)
+	params := &utils.RequestParams{
+		Method:      http.MethodGet,
+		Url:         geoCodeUrl,
+		QueryParams: api.GetGeoCodingParams(city),
+	}
+	req, err := utils.NewRequest(params)
 	if err != nil {
-		api.Logger.Printf("%s. Error making request: %v", method, err)
 		return nil, err
 	}
 
+	response, err := utils.DoRequestWithRetry(req, utils.Retries, utils.RetryTimeout)
 	defer response.Body.Close()
+
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		api.Logger.Printf("%s. Error reading response body: %v", method, err)
@@ -45,13 +48,4 @@ func (api *WeatherAPI) GetGeoCodeCityInfo(city string) (*weather.CityInfo, error
 	}
 
 	return &geoData, err
-}
-
-func (api *WeatherAPI) GetGeoCodingParams(city string) *map[string]string {
-	state := ""
-	country := "RU"
-	return &map[string]string{
-		"q":     fmt.Sprintf("%s,%s,%s", city, state, country),
-		"limit": "10",
-	}
 }

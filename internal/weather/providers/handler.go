@@ -16,11 +16,11 @@ const providerWeatherapi = "weatherapi"
 
 // GetWeather get current and forecast weather for given cities
 // and send int to telegram chat
-func GetWeather(ctx *app.AppContext, cities []string) (res []*weather.WeatherData) {
-	provider := getProvider(ctx.Cache)
+func GetWeather(app *app.AppContext, cities []string) (res []*weather.WeatherData) {
+	provider := getProvider(app.Cache)
 	for _, city := range cities {
 		data := provider.GetWeatherData(city)
-		go message.SendMessageToTelegram(ctx, data)
+		go message.SendMessageToTelegram(app, data)
 		res = append(res, data)
 	}
 	return

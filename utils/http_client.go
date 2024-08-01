@@ -1,15 +1,19 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"golang.org/x/net/proxy"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 	"weatherbot/config"
 	"weatherbot/internal/logger"
+	"weatherbot/internal/weather"
 )
 
 type Auth struct {
@@ -21,7 +25,65 @@ type HTTPProxyDialer struct {
 	ProxyURL *url.URL
 }
 
-const timeOut = 30
+type RequestParams struct {
+	Method      string
+	Url         string
+	QueryParams *map[string]string
+	Headers     *map[string]string
+	Body        interface{}
+}
+
+const httpClientTimeOut = 30 * time.Second
+const Retries = 3
+const RetryTimeout = 3 * time.Second
+
+func NewRequest(params *RequestParams) (*http.Request, error) {
+	u, err := url.Parse(params.Url)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Url: %v", err)
+	}
+
+	if params.Method == http.MethodGet && len(*params.QueryParams) > 0 {
+		q := u.Query()
+		for key, val := range *params.QueryParams {
+			q.Add(key, val)
+		}
+		u.RawQuery = q.Encode()
+	}
+
+	var reqBody io.Reader
+	switch body := params.Body.(type) {
+	case nil:
+		// do nothing
+	case url.Values:
+		// form body
+		reqBody = strings.NewReader(body.Encode())
+	case []byte:
+		// json
+		reqBody = bytes.NewReader(body)
+	default:
+		return nil, fmt.Errorf("unsupported body type: %T", body)
+	}
+
+	req, err := http.NewRequest(params.Method, u.String(), reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %v", err)
+	}
+
+	if params.Method == http.MethodPost {
+		if _, ok := params.Body.(url.Values); ok {
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		}
+	}
+
+	if params.Headers != nil {
+		for key, val := range *params.Headers {
+			req.Header.Set(key, val)
+		}
+	}
+
+	return req, nil
+}
 
 func (d *HTTPProxyDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	dialer := &net.Dialer{}
@@ -68,7 +130,7 @@ func getSOCKSDialer(uri *url.URL, auth *proxy.Auth) (proxy.ContextDialer, error)
 	return contextDialer, nil
 }
 
-func GetHttpClient() *http.Client {
+func getHttpClient() *http.Client {
 	client := &http.Client{}
 	if proxyURL := config.GetConfigValue("PROXY_URL"); proxyURL != "" {
 		proxyURI, err := url.Parse(proxyURL)
@@ -92,7 +154,7 @@ func GetHttpClient() *http.Client {
 			},
 		}
 		client.Transport = transport
-		client.Timeout = timeOut * time.Second
+		client.Timeout = httpClientTimeOut
 	}
 
 	return client
@@ -101,4 +163,44 @@ func GetHttpClient() *http.Client {
 func getPassword(proxyURI *url.URL) string {
 	password, _ := proxyURI.User.Password()
 	return password
+}
+
+func DoRequestWithRetry(req *http.Request, maxRetires int, initialWait time.Duration) (*http.Response, error) {
+	var response *http.Response
+	var err error
+
+	wait := initialWait
+	client := getHttpClient()
+
+	for attempt := 0; attempt < maxRetires; attempt++ {
+		if req.Body != nil {
+			if req.Body, err = req.GetBody(); err != nil {
+				return nil, fmt.Errorf("failed to get request body: %w", err)
+			}
+		}
+
+		response, err = client.Do(req)
+		if err == nil && response.StatusCode == http.StatusOK {
+			return response, nil
+		}
+
+		if response != nil {
+			response.Body.Close()
+		}
+
+		time.Sleep(wait)
+		wait *= 2
+	}
+
+	return nil, fmt.Errorf("after %d attempts, last error: %w", maxRetires, err)
+}
+
+func GetQueryParams(api weather.UrlParamsInterface, cityInfo *weather.CityInfo, additional *map[string]string) *map[string]string {
+	queryParams := api.GetUrlParams(cityInfo)
+	if additional != nil {
+		for key, val := range *additional {
+			(*queryParams)[key] = val
+		}
+	}
+	return queryParams
 }

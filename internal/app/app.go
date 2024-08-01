@@ -6,6 +6,7 @@ import (
 	"weatherbot/internal/telegram"
 )
 
+// AppContext structure with add data
 type AppContext struct {
 	TelegramBot *telegram.TelegramBot
 	Cache       *cache.Cache

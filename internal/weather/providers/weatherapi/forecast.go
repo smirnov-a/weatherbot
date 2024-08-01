@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
 	"sync"
 	"time"
 	"weatherbot/internal/weather"
@@ -15,17 +16,33 @@ const forecastUrl = "https://api.weatherapi.com/v1/forecast.json"
 const cntDays = "2"
 const cntRows = 18
 
+// GetWeatherDataForecast get forecast from data provider
 func (api *WeatherAPI) GetWeatherDataForecast(cityInfo *weather.CityInfo, wg *sync.WaitGroup, ch chan<- *weather.ForecastData, errCh chan<- error) {
 	const method = "GetWeatherDataForecast"
-	defer wg.Done()
+
+	defer func() {
+		if r := recover(); r != nil {
+			errCh <- fmt.Errorf("panic in %s: %v", method, r)
+		}
+		wg.Done()
+	}()
 
 	additional := map[string]string{
 		"days":        cntDays,
 		"hour_fields": "time,temp_c,feelslike_c,pressure_mb,humidity,wind_kph,condition,cloud,vis_km,precip_mm",
 	}
-	url, _ := utils.GetUrl(forecastUrl, cityInfo, api, &additional)
-	client := utils.GetHttpClient()
-	response, err := client.Get(url)
+	params := &utils.RequestParams{
+		Method:      http.MethodGet,
+		Url:         forecastUrl,
+		QueryParams: utils.GetQueryParams(api, cityInfo, &additional),
+	}
+	req, err := utils.NewRequest(params)
+	if err != nil {
+		errCh <- fmt.Errorf("%s. error creating request: %w", method, err)
+		return
+	}
+
+	response, err := utils.DoRequestWithRetry(req, utils.Retries, utils.RetryTimeout)
 	if err != nil {
 		errCh <- fmt.Errorf("%s. error fetching data: %w", method, err)
 		return

@@ -2,32 +2,32 @@ package openweathermap
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
+	"net/http"
 	"weatherbot/internal/weather"
 	"weatherbot/utils"
 )
 
 const geoCodeUrl = "https://api.openweathermap.org/geo/1.0/direct"
-const limitParam = "10"
-const country = "RU"
-const state = ""
 
 func (owm *OpenWeatherMap) GetGeoCodeCityInfo(city string) (*weather.CityInfo, error) {
 	const method = "GetGeoCodeCityInfo"
 	var geoData weather.CityInfo
 
-	additionalParams := owm.GetGeoCodingParams(city)
-	url, _ := utils.GetUrl(geoCodeUrl, nil, owm, additionalParams)
-	client := utils.GetHttpClient()
-	resp, err := client.Get(url)
+	params := &utils.RequestParams{
+		Method:      http.MethodGet,
+		Url:         geoCodeUrl,
+		QueryParams: owm.GetGeoCodingParams(city),
+	}
+	req, err := utils.NewRequest(params)
 	if err != nil {
-		owm.Logger.Printf("%s. Error making request: %v", method, err)
 		return nil, err
 	}
 
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+	response, err := utils.DoRequestWithRetry(req, utils.Retries, utils.RetryTimeout)
+	defer response.Body.Close()
+
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		owm.Logger.Printf("%s. Error reading response body: %v", method, err)
 		return nil, err
@@ -47,11 +47,4 @@ func (owm *OpenWeatherMap) GetGeoCodeCityInfo(city string) (*weather.CityInfo, e
 		HasCoords: true,
 	}
 	return &geoData, err
-}
-
-func (owm *OpenWeatherMap) GetGeoCodingParams(city string) *map[string]string {
-	return &map[string]string{
-		"q":     fmt.Sprintf("%s,%s,%s", city, state, country),
-		"limit": limitParam,
-	}
 }

@@ -1,5 +1,6 @@
 package weather
 
+// WeatherData structure with current weather and forecast
 type WeatherData struct {
 	CurrentData  *CurrentData
 	ForecastData *ForecastData
@@ -43,6 +44,7 @@ type LocalName struct {
 	Name   string
 }
 
+// CityInfo structure with latitude/longitude
 type CityInfo struct {
 	Name      string
 	Latitude  float64

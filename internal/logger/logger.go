@@ -13,6 +13,7 @@ const logFile = "app.log"
 
 var log = logrus.New()
 
+// InitLogger initialize logger
 func InitLogger() {
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
 		err := os.Mkdir(logDir, 0755)

@@ -1,12 +1,16 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"sync"
+	"time"
 	"weatherbot/internal/logger"
 	"weatherbot/internal/weather"
 	"weatherbot/utils"
 )
+
+const timeout = 45 * time.Second
 
 // GetWeatherDataImpl implement of GetWeatherData by given weather provider
 func GetWeatherDataImpl(city string, w weather.WeatherDataInterface) (result *weather.WeatherData) {
@@ -32,6 +36,9 @@ func GetWeatherDataImpl(city string, w weather.WeatherDataInterface) (result *we
 		return &weather.WeatherData{}
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	wg.Add(2)
 	go w.GetCurrentWeatherData(cityInfo, &wg, ch1, errCh)
 	go w.GetWeatherDataForecast(cityInfo, &wg, ch2, errCh)
@@ -45,8 +52,12 @@ func GetWeatherDataImpl(city string, w weather.WeatherDataInterface) (result *we
 
 	var combinedErr error
 	result = &weather.WeatherData{}
-	for ch1 != nil || ch2 != nil {
+	done := false
+	for !done && (ch1 != nil || ch2 != nil) {
 		select {
+		case <-ctx.Done():
+			logger.Logger().Printf("Context error: %v\n", ctx.Err())
+			done = true
 		case data, ok := <-ch1:
 			if ok {
 				result.CurrentData = data
@@ -73,7 +84,7 @@ func GetWeatherDataImpl(city string, w weather.WeatherDataInterface) (result *we
 	}
 
 	if combinedErr != nil {
-		logger.Logger().Printf("Encountered errors: %v\n", combinedErr)
+		logger.Logger().Errorf("Encountered errors: %v\n", combinedErr)
 		return &weather.WeatherData{}
 	}
 
