@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"github.com/patrickmn/go-cache"
@@ -34,6 +35,10 @@ func main() {
 		os.Exit(0)
 	}
 
+	if err := checkCronTabFile(*crontabFile); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
 	logger.InitLogger()
 	log := logger.Logger()
 
@@ -51,6 +56,7 @@ func main() {
 		Crontab:     *crontabFile,
 		ChatID:      config.GetTelegramChatId(),
 		Logger:      log,
+		Context:     context.Background(),
 	}
 
 	scheduler.Start(app)
@@ -63,4 +69,9 @@ func initLocale() {
 		i18n.Initialize(defaultLang, lang)
 		i18n.SetLocale(lang)
 	}
+}
+
+func checkCronTabFile(f string) error {
+	_, err := os.ReadFile(f)
+	return err
 }

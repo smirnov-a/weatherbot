@@ -71,6 +71,55 @@ func callFunc(ctx *app.AppContext, funcName string, params ...interface{}) (resu
     return
 }
 ```
+Внутри работа основана на гоуртинах: каждая задача в своей горутине.
+```go
+func RunTasks(app *app.AppContext, tasks []Task, cr *cron.Cron) {
+	for _, task := range tasks {
+		task := task // closure
+		_, err := cr.AddFunc(task.Schedule, func() {
+			go executeTask(app, task.Command)
+		})
+		if err != nil {
+			app.Logger.Printf("Error adding cron task %s: %v", task.Schedule, err)
+		}
+	}
+}
+```
+А обмен между горутинами осуществляется с помощью каналов:
+```go
+    wg := &sync.WaitGroup{}
+	// chanData weather data
+	chanData := make(chan *weather.WeatherData)
+	// chanMessage channel for sending message to telegram
+	chanMessage := make(chan *weather.WeatherData)
+	once := &sync.Once{}
+	closeDataChan := func(ch chan *weather.WeatherData) {
+		once.Do(func() {
+			close(ch)
+		})
+	}
+	defer func() {
+		closeDataChan(chanData)
+		close(chanMessage)
+	}()
+
+	sendMessageFunc := func(data *weather.WeatherData) {
+		message.SendMessageToTelegram(app, data)
+	}
+	go worker(sendMessageFunc, chanMessage)
+
+	provider := getProvider(app.Cache)
+	for _, city := range cities {
+		wg.Add(1)
+		go provider.GetWeatherData(ctx, city, chanData, wg)
+	}
+
+	go func() {
+		wg.Wait()
+		// close data channel. when closed it will stop cycle below
+		closeDataChan(chanData)
+	}()
+```
 
 ## <a name="installation"></a>Установка и настройка
 Скачайте репозиторий:

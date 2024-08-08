@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
 	"weatherbot/internal/telegram"
@@ -13,4 +14,5 @@ type AppContext struct {
 	Crontab     string
 	ChatID      int64
 	Logger      *logrus.Logger
+	Context     context.Context
 }

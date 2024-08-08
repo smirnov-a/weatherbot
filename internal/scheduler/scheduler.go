@@ -45,12 +45,7 @@ func RunTasks(app *app.AppContext, tasks []Task, cr *cron.Cron) {
 	for _, task := range tasks {
 		task := task // closure
 		_, err := cr.AddFunc(task.Schedule, func() {
-			defer func() {
-				if r := recover(); r != nil {
-					app.Logger.Printf("Recovered from panic in task %s: %v", task.Command, r)
-				}
-			}()
-			executeTask(app, task.Command)
+			go executeTask(app, task.Command)
 		})
 		if err != nil {
 			app.Logger.Printf("Error adding cron task %s: %v", task.Schedule, err)
@@ -58,15 +53,21 @@ func RunTasks(app *app.AppContext, tasks []Task, cr *cron.Cron) {
 	}
 }
 
-// executeTask - real execute the command
+// executeTask goroutine with real execution of command
 func executeTask(app *app.AppContext, cmd string) {
+	defer func() {
+		if r := recover(); r != nil {
+			app.Logger.Printf("Recovered from panic in task %s: %v", cmd, r)
+		}
+	}()
+
 	parts := strings.Fields(strings.Trim(cmd, `"`))
 	command := parts[0]
 	args := parts[1:]
-	callFunc(app, command, args)
+	_, _ = callFunc(app, command, args)
 }
 
-// callFunc - call function with params via reflection
+// callFunc call function with params via reflection
 func callFunc(app *app.AppContext, funcName string, params ...interface{}) (result interface{}, err error) {
 	f := reflect.ValueOf(cmdStorage[funcName])
 	if (len(params) + 1) != f.Type().NumIn() {

@@ -1,8 +1,10 @@
 package weatherapi
 
 import (
+	"context"
 	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
+	"sync"
 	"weatherbot/internal/weather"
 	"weatherbot/internal/weather/handler"
 )
@@ -13,8 +15,8 @@ type WeatherAPI struct {
 	Logger *logrus.Logger
 }
 
-func (api *WeatherAPI) GetWeatherData(city string) (result *weather.WeatherData) {
-	return handler.GetWeatherDataImpl(city, api)
+func (api *WeatherAPI) GetWeatherData(ctx context.Context, city string, ch chan<- *weather.WeatherData, wg *sync.WaitGroup) {
+	handler.GetWeatherDataImpl(ctx, city, api, ch, wg)
 }
 
 func (api *WeatherAPI) GetCacheInstance() *cache.Cache {

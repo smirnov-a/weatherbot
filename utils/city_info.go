@@ -38,7 +38,10 @@ func GetCityInfo(city string, geoCoder weather.GeoCoderInterface) (cityInfo *wea
 		cityInfo.HasCoords = true
 	}
 	if !cityInfo.HasCoords {
-		geoData := GetGeoCoderData(cityName, geoCoder)
+		geoData, err := GetGeoCoderData(cityName, geoCoder)
+		if err != nil {
+			return cityInfo, err
+		}
 		cityInfo.Latitude = geoData.Latitude
 		cityInfo.Longitude = geoData.Longitude
 		cityInfo.HasCoords = true
@@ -49,8 +52,7 @@ func GetCityInfo(city string, geoCoder weather.GeoCoderInterface) (cityInfo *wea
 
 // GetGeoCoderData - get city geolocation by api
 // and save it to local cache
-func GetGeoCoderData(city string, geoCoder weather.GeoCoderInterface) (cityInfo *weather.CityInfo) {
-	var err error
+func GetGeoCoderData(city string, geoCoder weather.GeoCoderInterface) (cityInfo *weather.CityInfo, err error) {
 	cacheKey := fmt.Sprintf("geocode_%s", city)
 	if cacheData, found := geoCoder.GetCacheInstance().Get(cacheKey); found {
 		cityInfo = cacheData.(*weather.CityInfo)
@@ -58,7 +60,7 @@ func GetGeoCoderData(city string, geoCoder weather.GeoCoderInterface) (cityInfo 
 		cityInfo, err = geoCoder.GetGeoCodeCityInfo(city)
 		if err != nil {
 			logger.Logger().Print("err:", err)
-			return nil
+			return nil, err
 		}
 		geoCoder.GetCacheInstance().Set(cacheKey, cityInfo, cache.NoExpiration)
 	}

@@ -1,7 +1,10 @@
 package providers
 
 import (
+	"context"
 	"github.com/patrickmn/go-cache"
+	"sync"
+	"time"
 	"weatherbot/config"
 	"weatherbot/internal/app"
 	"weatherbot/internal/logger"
@@ -17,12 +20,59 @@ const providerWeatherapi = "weatherapi"
 // GetWeather get current and forecast weather for given cities
 // and send int to telegram chat
 func GetWeather(app *app.AppContext, cities []string) (res []*weather.WeatherData) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	defer cancel()
+
+	wg := &sync.WaitGroup{}
+	// chanData weather data
+	chanData := make(chan *weather.WeatherData)
+	// chanMessage channel for sending message to telegram
+	chanMessage := make(chan *weather.WeatherData)
+	once := &sync.Once{}
+	closeDataChan := func(ch chan *weather.WeatherData) {
+		once.Do(func() {
+			close(ch)
+		})
+	}
+	defer func() {
+		closeDataChan(chanData)
+		close(chanMessage)
+	}()
+
+	sendMessageFunc := func(data *weather.WeatherData) {
+		message.SendMessageToTelegram(app, data)
+	}
+	go worker(sendMessageFunc, chanMessage)
+
 	provider := getProvider(app.Cache)
 	for _, city := range cities {
-		data := provider.GetWeatherData(city)
-		go message.SendMessageToTelegram(app, data)
-		res = append(res, data)
+		wg.Add(1)
+		go provider.GetWeatherData(ctx, city, chanData, wg)
 	}
+
+	go func() {
+		wg.Wait()
+		// close data channel. when closed it will stop cycle below
+		closeDataChan(chanData)
+	}()
+
+	done := false
+	for !done {
+		select {
+		case <-ctx.Done():
+			closeDataChan(chanData)
+			done = true
+		case data, ok := <-chanData:
+			if !ok {
+				done = true
+				break
+			}
+			// send data to channel. it will be sent to telegram
+			chanMessage <- data
+			res = append(res, data)
+		}
+	}
+
 	return
 }
 
@@ -47,4 +97,12 @@ func getProvider(cache *cache.Cache) (provider weather.WeatherDataInterface) {
 		log.Println("Unknown weather provider:", prov)
 	}
 	return
+}
+
+// worker read data from data channel and execute given function with data
+func worker(f func(data *weather.WeatherData), ch <-chan *weather.WeatherData) {
+	// do while channel is not closed
+	for data := range ch {
+		f(data)
+	}
 }

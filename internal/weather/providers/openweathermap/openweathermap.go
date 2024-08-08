@@ -1,8 +1,10 @@
 package openweathermap
 
 import (
+	"context"
 	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
+	"sync"
 	"weatherbot/internal/weather"
 	"weatherbot/internal/weather/handler"
 )
@@ -13,8 +15,8 @@ type OpenWeatherMap struct {
 	Logger *logrus.Logger
 }
 
-func (owm *OpenWeatherMap) GetWeatherData(city string) (result *weather.WeatherData) {
-	return handler.GetWeatherDataImpl(city, owm)
+func (owm *OpenWeatherMap) GetWeatherData(ctx context.Context, city string, ch chan<- *weather.WeatherData, wg *sync.WaitGroup) {
+	handler.GetWeatherDataImpl(ctx, city, owm, ch, wg)
 }
 
 func (owm *OpenWeatherMap) GetCacheInstance() *cache.Cache {
