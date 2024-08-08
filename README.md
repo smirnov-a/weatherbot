@@ -87,38 +87,38 @@ func RunTasks(app *app.AppContext, tasks []Task, cr *cron.Cron) {
 ```
 А обмен между горутинами осуществляется с помощью каналов:
 ```go
-    wg := &sync.WaitGroup{}
-	// chanData weather data
-	chanData := make(chan *weather.WeatherData)
-	// chanMessage channel for sending message to telegram
-	chanMessage := make(chan *weather.WeatherData)
-	once := &sync.Once{}
-	closeDataChan := func(ch chan *weather.WeatherData) {
-		once.Do(func() {
-			close(ch)
-		})
-	}
-	defer func() {
-		closeDataChan(chanData)
-		close(chanMessage)
-	}()
+wg := &sync.WaitGroup{}
+// chanData weather data
+chanData := make(chan *weather.WeatherData)
+// chanMessage channel for sending message to telegram
+chanMessage := make(chan *weather.WeatherData)
+once := &sync.Once{}
+closeDataChan := func(ch chan *weather.WeatherData) {
+	once.Do(func() {
+		close(ch)
+	})
+}
+defer func() {
+	closeDataChan(chanData)
+	close(chanMessage)
+}()
 
-	sendMessageFunc := func(data *weather.WeatherData) {
-		message.SendMessageToTelegram(app, data)
-	}
-	go worker(sendMessageFunc, chanMessage)
+sendMessageFunc := func(data *weather.WeatherData) {
+	message.SendMessageToTelegram(app, data)
+}
+go worker(sendMessageFunc, chanMessage)
 
-	provider := getProvider(app.Cache)
-	for _, city := range cities {
-		wg.Add(1)
-		go provider.GetWeatherData(ctx, city, chanData, wg)
-	}
+provider := getProvider(app.Cache)
+for _, city := range cities {
+	wg.Add(1)
+	go provider.GetWeatherData(ctx, city, chanData, wg)
+}
 
-	go func() {
-		wg.Wait()
-		// close data channel. when closed it will stop cycle below
-		closeDataChan(chanData)
-	}()
+go func() {
+	wg.Wait()
+	// close data channel. when closed it will stop cycle below
+	closeDataChan(chanData)
+}()
 ```
 
 ## <a name="installation"></a>Установка и настройка
