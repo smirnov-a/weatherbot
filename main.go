@@ -72,6 +72,6 @@ func initLocale() {
 }
 
 func checkCronTabFile(f string) error {
-	_, err := os.ReadFile(f)
+	_, err := os.Stat(f)
 	return err
 }
