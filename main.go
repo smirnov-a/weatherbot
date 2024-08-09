@@ -35,8 +35,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := checkCronTabFile(*crontabFile); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
+	if err := checkCronTabFile(*crontabFile); os.IsNotExist(err) {
+		fmt.Printf("File %s does not exist\n", *crontabFile)
 		os.Exit(1)
 	}
 	logger.InitLogger()
