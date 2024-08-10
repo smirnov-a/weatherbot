@@ -17,7 +17,7 @@ func NewTelegramBot(token string) (*TelegramBot, error) {
 	if err != nil {
 		return nil, err
 	}
-	bot.Debug = true
+	bot.Debug = config.GetTelegramDebug()
 	return &TelegramBot{
 		Bot: bot,
 	}, nil

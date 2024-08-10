@@ -34,3 +34,7 @@ func GetTelegramToken() string {
 func GetTelegramChatId() int64 {
 	return viper.GetInt64("TELEGRAM_CHAT_ID")
 }
+
+func GetTelegramDebug() bool {
+	return viper.GetBool("TELEGRAM_DEBUG")
+}
